@@ -1,0 +1,1 @@
+window.TOTO_STATUS = {"last_verify": "PASS", "last_verify_at": "2026-09-13T19:30:54+09:00", "last_fail_at": "2026-09-07T14:30:21+09:00", "poll_ok_24h": 143, "poll_fail_24h": 0, "round_state": "live"};
