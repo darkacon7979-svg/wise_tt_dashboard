@@ -1,0 +1,1 @@
+window.TOTO_HISTORY = {};
