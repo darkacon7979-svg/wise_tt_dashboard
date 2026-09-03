@@ -1,0 +1,918 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>프로토 배당판</title>
+<style>
+  :root {
+    --bg:#0a0e16; --surface:#10151f; --surface-2:#161d2b; --line:#232c3d;
+    --text:#e7eaf0; --text-dim:#7c8aa3; --amber:#e8a33d; --amber-dim:#6b5726;
+    --green:#3ddc97; --red:#e05c5c; --blue:#4f9cf0; --blue-l:#7cc0ff;
+    --font:-apple-system,BlinkMacSystemFont,'Malgun Gothic','Apple SD Gothic Neo',sans-serif;
+    --pill-pad:8px 14px; --row-pad:10px 14px; --team-fs:19px; --odds-fs:16px;
+  }
+  body.density-compact { --pill-pad:4px 10px; --row-pad:5px 12px; --team-fs:15px; --odds-fs:14px; }
+  body.density-wide { --pill-pad:12px 18px; --row-pad:14px 18px; --team-fs:22px; --odds-fs:18px; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font-family:var(--font); -webkit-font-smoothing:antialiased; }
+  button { font-family:var(--font); }
+
+  /* 헤더 */
+  :root { --hdr-h:160px; }
+  .board-header { position:sticky; top:0; z-index:10; background:var(--bg); padding:14px 20px 10px; border-bottom:1px solid var(--line); transition:padding .15s; }
+  /* 스크롤 컴팩트: 제목 축소, 메타·2단 필터·활성칩 숨김 → 본문을 가리지 않음 */
+  .board-header.compact { padding:6px 20px 6px; }
+  .board-header.compact .board-title h1 { font-size:16px; }
+  .board-header.compact .meta-row, .board-header.compact .filter-more, .board-header.compact .active-filters, .board-header.compact .head-right .filter-tabs, .board-header.compact #prob-toggle, .board-header.compact #rules-btn { display:none !important; }
+  .board-header.compact .filter-row { margin-top:4px; }
+  .board-header.compact .sel { padding:5px 8px 5px 4px; font-size:12px; }
+  .board-header.compact .search-box { padding:5px 10px; }
+  .board-header.compact .filter-tabs button { padding:4px 10px; font-size:12px; }
+  .board-title { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .board-title h1 { font-size:24px; font-weight:700; margin:0; letter-spacing:-0.02em; }
+  .round-tag { font-size:13px; color:var(--amber); background:rgba(232,163,61,.12); border:1px solid var(--amber-dim); padding:3px 10px; border-radius:4px; }
+  .round-select { background:var(--surface); color:var(--text); border:1px solid var(--line); border-radius:4px; font-size:12px; padding:3px 6px; display:none; }
+  .archive-badge { display:none; font-size:12px; color:var(--red); border:1px solid var(--red); padding:2px 8px; border-radius:4px; }
+  .head-right { margin-left:auto; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .status-ind { font-size:12px; padding:3px 8px; border-radius:4px; border:1px solid var(--line); color:var(--text-dim); display:none; cursor:default; }
+  .status-ind.ok { color:var(--green); border-color:rgba(61,220,151,.4); }
+  .status-ind.fail { color:var(--red); border-color:var(--red); }
+  .meta-row { display:flex; justify-content:space-between; align-items:center; margin-top:8px; flex-wrap:wrap; gap:10px; }
+  .updated-at { font-size:13px; color:var(--text-dim); font-variant-numeric:tabular-nums; padding:3px 8px; border-radius:4px; }
+  .updated-at .dot { display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--green); margin-right:6px; vertical-align:middle; }
+  .updated-at.stale { background:rgba(224,92,92,.16); color:var(--red); }
+  .updated-at.stale .dot { background:var(--red); }
+  .summary-bar { display:flex; gap:14px; font-size:12px; color:var(--text-dim); font-variant-numeric:tabular-nums; flex-wrap:wrap; }
+  .summary-bar b { color:var(--text); font-weight:600; }
+  .summary-bar .s-up b { color:var(--amber); } .summary-bar .s-live b { color:var(--green); }
+
+  .filter-row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:10px; }
+  .filter-tabs { display:flex; gap:3px; background:var(--surface); border:1px solid var(--line); border-radius:6px; padding:3px; }
+  .filter-tabs button { background:transparent; border:none; color:var(--text-dim); font-size:13px; padding:6px 12px; border-radius:4px; cursor:pointer; white-space:nowrap; }
+  .filter-tabs button.active { background:var(--surface-2); color:var(--text); }
+  .filter-tabs button.value-btn.active { color:var(--green); }
+  .search-box { flex:1; min-width:160px; max-width:320px; background:var(--surface); border:1px solid var(--line); border-radius:6px; color:var(--text); font-family:var(--font); font-size:13px; padding:8px 12px; outline:none; }
+  .search-box:focus { border-color:var(--amber-dim); }
+  .search-box::placeholder { color:var(--text-dim); }
+  .chip-row { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; align-items:center; }
+  .sel-wrap { display:flex; align-items:center; gap:6px; background:var(--surface); border:1px solid var(--line); border-radius:6px; padding:0 0 0 10px; font-size:12px; color:var(--text-dim); }
+  .sel { background:transparent; border:none; color:var(--text); font-family:var(--font); font-size:13px; padding:8px 8px 8px 4px; outline:none; cursor:pointer; max-width:190px; }
+  .sel option { background:var(--surface); color:var(--text); }
+  .sel-wrap.on { border-color:var(--amber); } .sel-wrap.on span { color:var(--amber); }
+  .star-toggle.on { color:var(--green); border-color:var(--green); }
+  .active-filters { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; min-height:0; }
+  .filter-more { display:none; }
+  .filter-more.open { display:flex; }
+  #more-toggle.on { color:var(--amber); border-color:var(--amber); }
+  #moved-toggle.on { color:var(--amber); border-color:var(--amber); }
+  .kbd-hint { margin-left:auto; font-size:11px; color:var(--text-dim); }
+  .kbd-hint kbd { background:var(--surface-2); border:1px solid var(--line); border-radius:3px; padding:0 5px; font-family:inherit; margin-right:2px; }
+  /* 블록 요약 배당 + 포커스 + 변동 마커 */
+  .lb-mini { display:flex; gap:6px; font-variant-numeric:tabular-nums; font-size:12px; color:var(--text); }
+  .lb-mini span { background:var(--surface-2); border-radius:3px; padding:1px 7px; }
+  .lb-mini span.dim { color:var(--text-dim); }
+  .lb-mini .mini-pick { cursor:pointer; border:1px solid transparent; }
+  .lb-mini .mini-pick:hover { background:#22304d; border-color:#3a4d75; }
+  .lb-mini .mini-pick.selected { background:rgba(232,163,61,.16); border-color:var(--amber); color:var(--amber); }
+  .moved-mark { font-size:10px; color:var(--amber); border:1px solid var(--amber-dim); border-radius:3px; padding:1px 5px; }
+  .game-block.focused { outline:2px solid var(--amber); outline-offset:-1px; }
+  /* 카트 검증 배지 + 마켓 교체 */
+  .ci-badges { display:flex; gap:4px; flex-wrap:wrap; margin-top:5px; }
+  .ci-badge { font-size:10px; padding:1px 6px; border-radius:3px; font-weight:700; }
+  .ci-badge.err { color:var(--red); background:rgba(224,92,92,.14); }
+  .ci-badge.warn { color:var(--amber); background:rgba(232,163,61,.12); }
+  .ci-switch { margin-top:6px; }
+  .ci-switch select { width:100%; background:var(--surface); border:1px solid var(--line); border-radius:4px; color:var(--text-dim); font-family:var(--font); font-size:11px; padding:3px 6px; }
+  /* 슬립 비교 */
+  .slip-row input[type=checkbox] { margin-right:6px; vertical-align:middle; }
+  .slips-head .cart-btn { padding:2px 8px; font-size:11px; }
+  .cmp-table { width:100%; border-collapse:collapse; font-size:12px; }
+  .cmp-table th, .cmp-table td { border-bottom:1px solid var(--line); padding:6px 8px; text-align:left; vertical-align:top; }
+  .cmp-table th { color:var(--text-dim); font-weight:500; font-size:11px; }
+  .cmp-table td.same { background:rgba(61,220,151,.08); }
+  .cmp-table td.diff { background:rgba(232,163,61,.08); }
+  .cmp-table .odds { color:var(--amber); font-variant-numeric:tabular-nums; font-weight:600; }
+  .af { font-size:11px; padding:3px 8px; border-radius:999px; background:rgba(232,163,61,.12); border:1px solid var(--amber-dim); color:var(--amber); cursor:pointer; }
+  .af:hover { border-color:var(--amber); }
+  .af .x { margin-left:5px; opacity:.7; }
+  .chip { background:var(--surface); border:1px solid var(--line); color:var(--text-dim); font-size:12px; padding:4px 10px; border-radius:999px; cursor:pointer; }
+  .chip.active { background:rgba(232,163,61,.14); border-color:var(--amber); color:var(--amber); }
+  .chip.star.active { background:rgba(61,220,151,.12); border-color:var(--green); color:var(--green); }
+  .kbd-hint { margin-left:auto; font-size:11px; color:var(--text-dim); }
+  .kbd-hint kbd { background:var(--surface-2); border:1px solid var(--line); border-radius:3px; padding:0 5px; font-family:inherit; }
+
+  /* 레이아웃 */
+  .layout { max-width:1520px; margin:0 auto; display:flex; gap:20px; align-items:flex-start; padding:16px; }
+  main { flex:1; min-width:0; }
+  @media (min-width:900px) { body { font-size:15px; } .board-header { padding:18px 32px 12px; } .layout { padding:20px 32px; } }
+  .empty-state { text-align:center; color:var(--text-dim); padding:60px 20px; font-size:14px; }
+
+  /* 경기 블록 */
+  .game-block { background:var(--surface); border:1px solid var(--line); border-radius:10px; overflow:hidden; margin-bottom:16px; }
+  .game-block.ended { opacity:.45; }
+  .game-block.watched { border-color:rgba(61,220,151,.45); }
+  .league-bar { background:#0b0f18; padding:9px 14px; font-size:14px; font-weight:700; color:var(--text); border-bottom:1px solid var(--line); letter-spacing:.02em; display:flex; justify-content:space-between; align-items:center; cursor:pointer; user-select:none; gap:10px; }
+  .league-bar .lb-left { display:flex; gap:10px; align-items:center; min-width:0; }
+  .league-bar .lb-right { font-size:12px; color:var(--text-dim); font-weight:400; display:flex; gap:10px; align-items:center; white-space:nowrap; }
+  .league-bar .caret { display:inline-block; transition:transform .15s; }
+  .game-block.collapsed .caret { transform:rotate(-90deg); }
+  .game-block.collapsed .market-line { display:none; }
+  .star-btn { background:transparent; border:none; color:var(--text-dim); font-size:16px; cursor:pointer; padding:0 4px; line-height:1; }
+  .star-btn.on { color:var(--green); }
+  .detail-btn { background:transparent; border:1px solid var(--line); color:var(--text-dim); font-size:11px; padding:2px 8px; border-radius:4px; cursor:pointer; display:none; }
+  body.has-history .detail-btn { display:inline-block; }
+  .detail-btn:hover { color:var(--text); border-color:#3a4d75; }
+  .market-line { display:flex; align-items:center; gap:10px; padding:var(--row-pad); border-bottom:1px solid var(--line); }
+  .market-line:last-child { border-bottom:none; }
+  .market-line.hl { animation:hl-flash 1.6s ease; }
+  @keyframes hl-flash { 0% { background:rgba(232,163,61,.28);} 100% { background:transparent; } }
+  .line-no { color:var(--text); font-size:13px; font-weight:700; font-variant-numeric:tabular-nums; white-space:nowrap; width:46px; flex-shrink:0; }
+  .line-time { color:var(--text-dim); font-size:12px; white-space:nowrap; width:84px; flex-shrink:0; }
+  .line-time.soon { color:var(--amber); font-weight:600; } .line-time.started { color:#4a5568; }
+
+  .side-pill { flex:1; display:flex; align-items:center; justify-content:space-between; gap:10px; background:var(--surface-2); border:1px solid transparent; border-radius:6px; padding:var(--pill-pad); min-width:0; position:relative; transition:background .12s,border-color .12s,transform .12s; }
+  .side-pill.pickable { cursor:pointer; }
+  .side-pill.pickable:hover { background:#22304d; border-color:#3a4d75; transform:translateY(-1px); }
+  .side-pill.selected { background:rgba(232,163,61,.16); border-color:var(--amber); }
+  .side-pill.selected .odds-val { color:var(--amber); }
+  .side-pill.disabled { opacity:.55; cursor:default; }
+  .side-pill.value { box-shadow:inset 0 0 0 1px rgba(61,220,151,.5); }
+  .side-pill .team-name { font-size:var(--team-fs); font-weight:700; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:3.5em; }
+  .side-pill .team-name.over { color:var(--red); } .side-pill .team-name.under { color:var(--blue-l); }
+  .side-pill .ou-arrow { font-size:15px; margin:0 4px; }
+  .side-pill .odds-wrap { display:flex; flex-direction:column; align-items:flex-end; flex-shrink:0; }
+  .side-pill.home-side .odds-wrap { align-items:flex-end; } .side-pill.away-side .odds-wrap { align-items:flex-start; }
+  .side-pill .odds-val { font-variant-numeric:tabular-nums; font-size:var(--odds-fs); font-weight:600; color:var(--text); white-space:nowrap; }
+  .side-pill .odds-sub { font-size:10px; color:var(--text-dim); font-variant-numeric:tabular-nums; white-space:nowrap; line-height:1.2; }
+  .side-pill .odds-sub .edge { font-weight:700; } .odds-sub .edge.pos { color:var(--green); } .odds-sub .edge.neg { color:var(--red); }
+  body.hide-prob .odds-sub { display:none; }
+  .odds-badge { display:inline-block; font-size:10px; font-weight:700; color:var(--bg); background:var(--amber); border-radius:3px; padding:0 4px; margin-right:4px; vertical-align:middle; }
+  .trend-badge { display:inline-block; font-size:10px; font-weight:700; padding:1px 5px; border-radius:3px; margin-left:5px; vertical-align:middle; }
+  .trend-badge.up { color:var(--red); background:rgba(224,92,92,.14); } .trend-badge.down { color:var(--blue); background:rgba(79,156,240,.14); }
+  .line-center { width:64px; flex-shrink:0; text-align:center; font-variant-numeric:tabular-nums; color:var(--text); font-size:14px; font-weight:600; }
+  .line-center .market-label { display:block; font-size:10px; color:var(--amber); font-weight:600; margin-top:2px; white-space:nowrap; }
+  .line-center .margin { display:block; font-size:10px; color:var(--text-dim); font-weight:400; margin-top:2px; }
+  body.hide-prob .line-center .margin { display:none; }
+  .line-status { width:68px; flex-shrink:0; text-align:right; }
+  .line-status .market-tag { font-size:11px; padding:3px 8px; border-radius:3px; background:var(--surface-2); color:var(--text-dim); }
+  .line-status .market-tag.upcoming { color:var(--amber); background:rgba(232,163,61,.1); }
+
+  /* 스파크라인 툴팁 */
+  .tip { position:fixed; z-index:50; background:#0b0f18; border:1px solid #3a4d75; border-radius:6px; padding:8px 10px; font-size:11px; color:var(--text-dim); pointer-events:none; display:none; min-width:150px; }
+  .tip .tip-title { color:var(--text); font-weight:600; margin-bottom:4px; font-variant-numeric:tabular-nums; }
+  .tip svg { display:block; }
+
+  @media (max-width:640px) {
+    .market-line { flex-wrap:wrap; gap:8px; padding:10px 12px; }
+    .line-no { order:0; width:46px; flex:0 0 46px; }
+    .line-time { order:0; width:auto; flex:1 1 calc(100% - 134px); }
+    .line-status { order:1; width:68px; flex:0 0 68px; }
+    .side-pill:first-of-type { order:2; } .line-center { order:3; width:52px; flex:0 0 52px; } .side-pill:last-of-type { order:4; }
+    .side-pill { padding:8px 10px; gap:6px; } .side-pill .team-name { font-size:16px; } .side-pill .odds-val { font-size:15px; }
+  }
+
+  /* 카트 */
+  .cart { width:270px; flex-shrink:0; position:sticky; top:calc(var(--hdr-h) + 12px); background:var(--surface); border:1px solid var(--line); border-radius:10px; overflow:hidden; max-height:calc(100vh - var(--hdr-h) - 28px); display:flex; flex-direction:column; font-size:12px; }
+  /* 비어있으면 숨기고 작은 버튼만 */
+  .cart.hidden { display:none; }
+  .cart-fab { display:none; position:fixed; right:18px; bottom:18px; z-index:21; background:var(--surface); border:1px solid var(--line); color:var(--text); border-radius:999px; padding:9px 14px; font-size:13px; cursor:pointer; box-shadow:0 4px 18px rgba(0,0,0,.45); }
+  .cart-fab.show { display:inline-flex; gap:6px; align-items:center; }
+  .cart-fab b { color:var(--amber); font-variant-numeric:tabular-nums; }
+  .cart-min { background:transparent; border:1px solid var(--line); color:var(--text-dim); border-radius:4px; width:22px; height:22px; line-height:20px; text-align:center; cursor:pointer; padding:0; font-size:13px; }
+  .cart-head { display:flex; align-items:center; justify-content:space-between; padding:7px 10px; background:#0b0f18; border-bottom:1px solid var(--line); gap:6px; }
+  .cart-head .cart-title { font-size:13px; font-weight:700; }
+  .cart-head .cart-count { font-size:12px; color:var(--amber); margin-left:6px; font-variant-numeric:tabular-nums; }
+  .cart-actions { display:flex; gap:5px; flex-wrap:wrap; justify-content:flex-end; }
+  .cart-btn { background:transparent; border:1px solid var(--line); color:var(--text-dim); font-size:12px; padding:4px 9px; border-radius:4px; cursor:pointer; white-space:nowrap; }
+  .cart .cart-btn { font-size:11px; padding:3px 7px; }
+  .cart-btn:hover { color:var(--text); border-color:#3a4d75; }
+  .cart-btn.clear:hover { color:var(--red); border-color:var(--red); }
+  .cart-btn.done { color:var(--green); border-color:var(--green); }
+  .cart-body { overflow-y:auto; padding:8px; display:flex; flex-direction:column; gap:6px; flex:1; }
+  .cart-empty { color:var(--text-dim); font-size:13px; text-align:center; padding:30px 10px; }
+  .cart-item { position:relative; background:var(--surface-2); border:1px solid var(--line); border-radius:6px; padding:7px 26px 7px 10px; }
+  .cart-item.changed { border-color:var(--amber-dim); }
+  .cart-item .ci-meta { font-size:10px; color:var(--text-dim); margin-bottom:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .cart-item .ci-match { font-size:12px; color:var(--text); margin-bottom:4px; cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .cart-item .ci-match:hover { color:var(--amber); text-decoration:underline; }
+  .cart-item .ci-pick { display:flex; justify-content:space-between; align-items:baseline; gap:8px; }
+  .cart-item .pick-label { font-size:13px; font-weight:700; } .pick-label.over { color:var(--red);} .pick-label.under { color:var(--blue-l);}
+  .cart-item .pick-line { font-size:11px; color:var(--amber); margin-left:6px; font-weight:600; }
+  .cart-item .pick-odds { font-size:14px; font-weight:700; color:var(--amber); font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .cart-item .pick-odds .was { font-size:11px; color:var(--text-dim); text-decoration:line-through; margin-right:4px; font-weight:400; }
+  .cart-item .pick-odds.up-chg { color:var(--red);} .cart-item .pick-odds.down-chg { color:var(--blue);}
+  .cart-item .ci-remove { position:absolute; top:6px; right:6px; width:20px; height:20px; border-radius:4px; border:none; background:transparent; color:var(--text-dim); font-size:14px; line-height:20px; text-align:center; cursor:pointer; padding:0; }
+  .cart-item .ci-remove:hover { background:rgba(224,92,92,.18); color:var(--red); }
+  .cart-note { font-size:11px; color:var(--amber); padding:0 14px 6px; }
+  .cart-note.err { color:var(--red); }
+  .cart-foot { border-top:1px solid var(--line); padding:6px 10px 8px; display:flex; flex-direction:column; gap:4px; font-size:12px; color:var(--text-dim); }
+  .cart-foot .row { display:flex; justify-content:space-between; align-items:baseline; gap:8px; }
+  .cart-foot .total-odds { font-size:16px; font-weight:700; color:var(--text); font-variant-numeric:tabular-nums; }
+  .cart-foot .stake { width:90px; background:var(--surface-2); border:1px solid var(--line); border-radius:4px; color:var(--text); font-family:var(--font); font-size:13px; padding:4px 8px; text-align:right; }
+  .cart-foot .payout { font-size:13px; font-weight:700; color:var(--green); font-variant-numeric:tabular-nums; }
+  .slips { border-top:1px solid var(--line); padding:6px 10px; font-size:11px; }
+  .slips-head { display:flex; justify-content:space-between; align-items:center; color:var(--text-dim); margin-bottom:6px; }
+  .slip-row { display:flex; justify-content:space-between; align-items:center; gap:6px; padding:4px 0; border-bottom:1px dashed var(--line); }
+  .slip-row:last-child { border-bottom:none; }
+  .slip-row .slip-name { cursor:pointer; color:var(--text); }
+  .slip-row .slip-name:hover { color:var(--amber); }
+  .slip-row .slip-meta { color:var(--text-dim); font-size:11px; }
+  .slip-row .slip-del { background:none; border:none; color:var(--text-dim); cursor:pointer; font-size:12px; }
+  .slip-row .slip-del:hover { color:var(--red); }
+  .slip-row .slip-score { font-size:11px; font-variant-numeric:tabular-nums; }
+  .slip-score.hit { color:var(--green);} .slip-score.miss { color:var(--red);}
+  @media (max-width:900px) {
+    .layout { flex-direction:column; padding:12px; padding-bottom:84px; gap:12px; }
+    .board-header { padding:10px 12px 8px; }
+    .board-title h1 { font-size:19px; }
+    .head-right { width:100%; margin-left:0; }
+    .filter-row { gap:6px; margin-top:8px; }
+    .search-box { min-width:120px; max-width:none; flex:1 1 140px; }
+    .sel-wrap { flex:1 1 auto; } .sel { max-width:none; width:100%; }
+    .kbd-hint { display:none; }
+    .cart { position:fixed; left:0; right:0; bottom:0; top:auto; width:auto; max-height:52px; border-radius:12px 12px 0 0; border-bottom:none; transition:max-height .2s; z-index:20; }
+    .cart.open { max-height:70vh; } .cart-head { cursor:pointer; }
+    .cart-fab { right:12px; bottom:12px; }
+  }
+  @media (max-width:640px) {
+    .board-title h1 { font-size:17px; }
+    .round-tag { font-size:11px; padding:2px 7px; }
+    .updated-at { font-size:11px; }
+    .summary-bar { gap:8px; font-size:11px; }
+    .filter-tabs button { padding:5px 9px; font-size:12px; }
+    .league-bar { padding:8px 10px; font-size:12px; }
+    .lb-mini { display:none; }
+    .line-no { width:40px; }
+  }
+
+  /* 상세 패널 / 규칙 모달 */
+  .overlay { position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:40; display:none; }
+  .overlay.show { display:block; }
+  .panel { position:fixed; top:0; right:0; bottom:0; width:min(560px,100%); background:var(--surface); border-left:1px solid var(--line); z-index:41; transform:translateX(100%); transition:transform .2s; display:flex; flex-direction:column; }
+  .panel.show { transform:translateX(0); }
+  .panel-head { display:flex; justify-content:space-between; align-items:center; padding:14px 16px; border-bottom:1px solid var(--line); background:#0b0f18; }
+  .panel-head h2 { margin:0; font-size:16px; }
+  .panel-close { background:none; border:1px solid var(--line); color:var(--text-dim); border-radius:4px; padding:4px 10px; cursor:pointer; }
+  .panel-body { overflow-y:auto; padding:14px 16px; flex:1; }
+  .panel-body .pmeta { font-size:12px; color:var(--text-dim); margin-bottom:12px; }
+  .pm { background:var(--surface-2); border:1px solid var(--line); border-radius:6px; padding:10px 12px; margin-bottom:10px; }
+  .pm-head { display:flex; justify-content:space-between; font-size:13px; margin-bottom:6px; }
+  .pm-head b { color:var(--amber); }
+  .pm-chart svg { width:100%; height:80px; display:block; }
+  .pm-legend { display:flex; gap:12px; font-size:11px; color:var(--text-dim); margin-top:4px; font-variant-numeric:tabular-nums; }
+  .pm-legend .h { color:var(--text);} .pm-legend .d { color:var(--amber);} .pm-legend .a { color:var(--blue-l);}
+  .rule-form { display:flex; flex-direction:column; gap:10px; font-size:13px; }
+  .rule-form label { display:flex; flex-direction:column; gap:4px; color:var(--text-dim); }
+  .rule-form input, .rule-form select, .rule-form textarea { background:var(--surface-2); border:1px solid var(--line); border-radius:4px; color:var(--text); font-family:var(--font); font-size:13px; padding:6px 8px; }
+  .rule-list { margin-top:12px; font-size:12px; }
+  .rule-row { display:flex; justify-content:space-between; gap:8px; padding:6px 0; border-bottom:1px dashed var(--line); }
+  .rule-row button { background:none; border:none; color:var(--text-dim); cursor:pointer; }
+  .rule-row button:hover { color:var(--red); }
+  .hint { font-size:11px; color:var(--text-dim); line-height:1.5; }
+  footer { text-align:center; color:var(--text-dim); font-size:11px; padding:30px 16px 40px; }
+</style>
+</head>
+<body>
+
+<div class="board-header">
+  <div class="board-title">
+    <h1>프로토 배당판</h1>
+    <span class="round-tag" id="round-tag">-</span>
+    <select class="round-select" id="round-select"></select>
+    <span class="archive-badge" id="archive-badge">아카이브 보기 · 카트 비활성</span>
+    <div class="head-right">
+      <span class="status-ind" id="status-ind"></span>
+      <div class="filter-tabs" id="density-tabs" title="화면 밀도">
+        <button data-density="compact">조밀</button>
+        <button class="active" data-density="normal">보통</button>
+        <button data-density="wide">넓게</button>
+      </div>
+      <button class="cart-btn" id="prob-toggle" type="button" title="내재확률·마진 표시 켜기/끄기">확률 표시</button>
+      <button class="cart-btn" id="rules-btn" type="button" title="배당 변동 알림 규칙">알림 규칙</button>
+    </div>
+  </div>
+  <div class="meta-row">
+    <div class="updated-at" id="updated-at">데이터 없음</div>
+    <div class="summary-bar" id="summary-bar"></div>
+  </div>
+  <div class="filter-row">
+    <div class="filter-tabs" id="status-tabs">
+      <button class="active" data-filter="upcoming">경기전</button>
+      <button data-filter="all">전체</button>
+    </div>
+    <label class="sel-wrap"><span>종목</span><select class="sel" id="sel-sport"></select></label>
+    <input class="search-box" id="search" type="search" placeholder="팀명 또는 경기번호 검색 ( / )" autocomplete="off">
+    <button class="cart-btn" id="moved-toggle" type="button" title="최근 1시간 내 배당이 움직인 경기만">⚡ 1h 변동 <span id="moved-count">0</span></button>
+    <button class="cart-btn star-toggle" id="watch-toggle" type="button" title="관심 경기만">★ 관심 <span id="watch-count">0</span></button>
+    <button class="cart-btn" id="more-toggle" type="button">필터 더보기 ▾</button>
+  </div>
+  <div class="filter-row filter-more" id="filter-more">
+    <label class="sel-wrap"><span>리그</span><select class="sel" id="sel-league"></select></label>
+    <label class="sel-wrap"><span>날짜</span><select class="sel" id="sel-date"></select></label>
+    <label class="sel-wrap"><span>마켓</span><select class="sel" id="sel-market">
+      <option value="all">전체</option><option value="ml">승패</option><option value="3way">승①패/승무패</option>
+      <option value="h">핸디</option><option value="u">오버언더</option><option value="sum">SUM</option>
+    </select></label>
+    <label class="sel-wrap"><span>정렬</span><select class="sel" id="sel-sort">
+      <option value="time">시간순</option><option value="league">리그 → 시간</option><option value="no">경기번호</option>
+      <option value="fav">홈배당 낮은순</option><option value="dog">홈배당 높은순</option><option value="margin">마진 낮은순</option>
+    </select></label>
+    <div class="filter-tabs" id="value-tabs" style="display:none">
+      <button class="value-btn" data-value="on">밸류 +5%↑</button>
+    </div>
+    <button class="cart-btn" id="filter-reset" type="button" title="필터 초기화">초기화</button>
+    <button class="cart-btn" id="collapse-all" type="button" title="보이는 경기 전부 접기/펼치기">전체 접기</button>
+    <span class="kbd-hint"><kbd>j</kbd><kbd>k</kbd> 이동 <kbd>Enter</kbd> 접기 <kbd>s</kbd> 관심 <kbd>d</kbd> 상세 <kbd>/</kbd> 검색 <kbd>1-6</kbd> 마켓</span>
+  </div>
+  <div class="active-filters" id="active-filters"></div>
+</div>
+
+<div class="layout">
+  <main id="main"></main>
+  <aside class="cart" id="cart">
+    <div class="cart-head" id="cart-head">
+      <div><span class="cart-title">카트</span><span class="cart-count" id="cart-count">0</span></div>
+      <div class="cart-actions">
+        <button class="cart-min" id="cart-min" type="button" title="카트 접기">─</button>
+        <button class="cart-btn" id="cart-copy" type="button">복사</button>
+        <button class="cart-btn" id="cart-share" type="button" title="카트가 담긴 링크 복사">링크</button>
+        <button class="cart-btn" id="cart-save" type="button" title="현재 카트를 슬립으로 저장">저장</button>
+        <button class="cart-btn clear" id="cart-clear" type="button">비우기</button>
+      </div>
+    </div>
+    <div class="cart-body" id="cart-body"></div>
+    <div class="cart-note" id="cart-note" style="display:none"></div>
+    <div class="cart-foot">
+      <div class="row"><span>합산 배당</span><span class="total-odds" id="cart-total">-</span></div>
+      <div class="row"><span>금액</span><input class="stake" id="stake" type="number" min="0" step="1000" placeholder="0" inputmode="numeric"></div>
+      <div class="row"><span>예상 적중금</span><span class="payout" id="payout">-</span></div>
+    </div>
+    <div class="slips" id="slips" style="display:none">
+      <div class="slips-head"><span>저장된 슬립</span><span id="slips-count"></span></div>
+      <div id="slips-list"></div>
+    </div>
+  </aside>
+</div>
+
+<button class="cart-fab" id="cart-fab" type="button">🛒 카트 <b id="cart-fab-count">0</b></button>
+<footer>toto_data.js · odds_history.js · status.js · my_odds.js · archive/index.js 를 갱신하면 자동 반영됩니다</footer>
+
+<div class="tip" id="tip"></div>
+<div class="overlay" id="overlay"></div>
+<div class="panel" id="panel">
+  <div class="panel-head"><h2 id="panel-title">상세</h2><button class="panel-close" id="panel-close" type="button">닫기</button></div>
+  <div class="panel-body" id="panel-body"></div>
+</div>
+
+<script src="toto_data.js"></script>
+<script src="odds_history.js"></script>
+<script src="status.js"></script>
+<script src="my_odds.js"></script>
+<script src="archive/index.js"></script>
+<script>
+(function () {
+  // ─────────────────────────────────────────────────────────────
+  // 데이터 소스 (없으면 해당 기능만 숨김)
+  // window.TOTO_DATA     : {generated_at, round:{year,round}, rows:[...]}                 (필수)
+  // window.TOTO_HISTORY  : { "<game_no>": [[iso_ts, home, draw, away], ...] }             (2-1 스파크라인·상세)
+  // window.TOTO_STATUS   : {last_verify:"PASS"|"FAIL", last_verify_at, last_fail_at, poll_ok_24h, poll_fail_24h} (2-4)
+  // window.MY_ODDS       : { "<game_no>": {home:p, draw:p, away:p} }  (0~1 확률)          (3-1 밸류)
+  // window.TOTO_ARCHIVE  : [ {round:104, year:2026, file:"archive/104.js"}, ... ]         (2-3 아카이브, 각 파일은 window.TOTO_ARCHIVE_DATA[round]={...TOTO_DATA 형식} 을 설정)
+  // ─────────────────────────────────────────────────────────────
+  var liveData = (window.TOTO_DATA && window.TOTO_DATA.rows) ? window.TOTO_DATA : { generated_at:null, rows:[] };
+  var data = liveData;
+  var HIST = window.TOTO_HISTORY || null;
+  var STATUS = window.TOTO_STATUS || null;
+  var MYODDS = window.MY_ODDS || null;
+  var ARCHIVE = Array.isArray(window.TOTO_ARCHIVE) ? window.TOTO_ARCHIVE : null;
+  window.TOTO_ARCHIVE_DATA = window.TOTO_ARCHIVE_DATA || {};
+  var archiveMode = false;
+
+  var main = document.getElementById('main');
+  var UPCOMING_TAG = '경기전', STALE_MIN = 30, MAX_PICKS = 10, VALUE_EDGE = 0.05;
+  var LS = { slips:'toto.slips', watch:'toto.watch', density:'toto.density', prob:'toto.prob', rules:'toto.rules', stake:'toto.stake' };
+
+  function lsGet(k, def) { try { var v = localStorage.getItem(k); return v === null ? def : JSON.parse(v); } catch (e) { return def; } }
+  function lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+
+  // ── 필터 상태 ──
+  var currentFilter='upcoming', currentMarket='all', currentLeague=null, searchText='', valueOnly=false, watchOnly=false;
+  var collapsed = lsGet('toto.collapsed', {});
+  function saveCollapsed(){ lsSet('toto.collapsed', collapsed); }
+  var watch = lsGet(LS.watch, {});
+
+  // ── 유틸 ──
+  function hasOdds(v) { return !(v===null||v===undefined||v===''||(typeof v==='number'&&isNaN(v))); }
+  function num(v) { return hasOdds(v) ? parseFloat(v) : null; }
+  function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+  function isHandicap(bt){ return !!bt && /^H\b/.test(String(bt).trim()); }
+  function isOverUnder(bt){ return !!bt && /^U\b/.test(String(bt).trim()); }
+  function isSum(bt){ return !!bt && /^SUM$/i.test(String(bt).trim()); }
+  function parseLine(bt){ if(!bt) return null; var m=String(bt).match(/-?\d+(\.\d+)?/); return m?m[0]:null; }
+  function marketClass(m){ var bt=m.bet_type; if(isHandicap(bt))return'h'; if(isOverUnder(bt))return'u'; if(isSum(bt))return'sum'; if(hasOdds(m.draw_odds))return'3way'; if(!bt)return'ml'; return'other'; }
+  function parseKstEpoch(label){ if(!label)return null; var m=String(label).match(/(\d{2})\.(\d{2}).*?(\d{2}):(\d{2})/); if(!m)return null; var y=new Date().getFullYear(); return Date.UTC(y,+m[1]-1,+m[2],+m[3]-9,+m[4]); }
+  function timeClass(label){ var e=parseKstEpoch(label); if(e===null)return''; var d=e-Date.now(); if(d<=0)return'started'; if(d<=3600000)return'soon'; return''; }
+  function fmtPct(p){ return (p*100).toFixed(0)+'%'; }
+  function implied(o){ var n=num(o); return n&&n>0 ? 1/n : null; }
+  function marginOf(m){ var ps=[implied(m.home_odds),implied(m.draw_odds),implied(m.away_odds)].filter(function(x){return x!==null;}); if(ps.length<2)return null; return ps.reduce(function(a,b){return a+b;},0)-1; }
+  function myProb(gameNo, side){ if(!MYODDS)return null; var r=MYODDS[String(gameNo)]; if(!r)return null; var v=r[side]; return (typeof v==='number'&&!isNaN(v))?v:null; }
+  function edgeOf(m, side){ var mp=myProb(m.game_no, side); var o=side==='home'?m.home_odds:side==='away'?m.away_odds:m.draw_odds; var ip=implied(o); if(mp===null||ip===null)return null; return mp-ip; }
+
+  // ── 메타 / 상태 ──
+  var updatedEl=document.getElementById('updated-at'), roundEl=document.getElementById('round-tag'), summaryEl=document.getElementById('summary-bar');
+  function fmtAgo(iso){ if(!iso)return'데이터 없음'; var t=new Date(iso); if(isNaN(t.getTime()))return iso; var dm=Math.round((Date.now()-t.getTime())/60000); var l=dm<1?'방금 갱신':dm<60?dm+'분 전 갱신':Math.round(dm/60)+'시간 전 갱신'; return l+' · '+t.toLocaleString('ko-KR',{hour12:false}); }
+  function renderMeta(){
+    var iso=data.generated_at; updatedEl.innerHTML='<span class="dot"></span>'+fmtAgo(iso);
+    var stale=!archiveMode && iso ? ((Date.now()-new Date(iso).getTime())/60000>STALE_MIN):false;
+    updatedEl.classList.toggle('stale',stale); if(stale)updatedEl.innerHTML+=' · 갱신 지연';
+    if(data.round)roundEl.textContent=(data.round.year||'')+'년 '+(data.round.round||'')+'회차';
+  }
+  function renderStatusInd(){
+    var el=document.getElementById('status-ind'); if(!STATUS){el.style.display='none';return;}
+    var ok=String(STATUS.last_verify||'').toUpperCase()==='PASS';
+    el.className='status-ind '+(ok?'ok':'fail'); el.style.display='inline-block';
+    el.textContent='데이터 '+(ok?'검증 PASS':'검증 FAIL')+(STATUS.poll_ok_24h!=null?' · 24h '+STATUS.poll_ok_24h+'/'+((STATUS.poll_ok_24h||0)+(STATUS.poll_fail_24h||0)):'');
+    el.title='마지막 검증: '+(STATUS.last_verify_at||'-')+(STATUS.last_fail_at?'\n마지막 FAIL: '+STATUS.last_fail_at:'');
+  }
+
+  // ── 그룹핑 ──
+  function groupRows(rows){
+    var g={},order=[];
+    rows.forEach(function(r){ var k=String(r.group_id||r.game_no); if(!g[k]){g[k]={group_id:k,game_date_label:r.game_date_label,league:r.league,home_team:r.home_team,away_team:r.away_team,markets:[]};order.push(k);} g[k].markets.push(r); if(!g[k].home_team&&r.home_team)g[k].home_team=r.home_team; if(!g[k].away_team&&r.away_team)g[k].away_team=r.away_team; });
+    var list=order.map(function(k){return g[k];}); list.sort(function(a,b){return (parseKstEpoch(a.game_date_label)||0)-(parseKstEpoch(b.game_date_label)||0);}); return list;
+  }
+  function isUpcoming(game){ return game.markets.some(function(m){return m.market_status_tag===UPCOMING_TAG;}); }
+  function isLive(game){ return !isUpcoming(game)&&game.markets.some(function(m){return /회|전반|후반|중/.test(String(m.market_status_tag||''));}); }
+  function renderSummary(groups){ var up=0,live=0,end=0; groups.forEach(function(g){if(isUpcoming(g))up++;else if(isLive(g))live++;else end++;}); summaryEl.innerHTML='<span class="s-up">경기전 <b>'+up+'</b></span><span class="s-live">진행중 <b>'+live+'</b></span><span>종료 <b>'+end+'</b></span><span>총 <b>'+groups.length+'</b>경기</span>'; }
+  // ── 종목 분류 (리그명 키워드 → 종목). 모르는 리그는 '기타' ──
+  var SPORT_RULES=[
+    ['야구',/KBO|MLB|NPB|CPBL|야구|베이스볼/i],
+    ['축구',/EPL|프리미어|라리가|분데스|세리에|리그1|프리그1|리그앙|K리그|J1|J2|J리그|MLS|에레디비|챔피언십|EFL|포르투|벨기에|스코틀|터키|수페르|프리메이라|A리그|축구|컵|UCL|UEL|월드컵|국대|친선|올림픽축|리가|리그/i],
+    ['농구',/NBA|KBL|WKBL|농구|바스켓|유로바스켓|B리그|여농|남농|NCAA/i],
+    ['배구',/V리그|배구|발리|여배|남배/i],
+    ['아이스하키',/NHL|하키|KHL/i],
+    ['미식축구',/NFL|미식/i]
+  ];
+  function sportOf(league){ var l=String(league||''); for(var i=0;i<SPORT_RULES.length;i++){ if(SPORT_RULES[i][1].test(l)) return SPORT_RULES[i][0]; } return '기타'; }
+  function dateOf(label){ var m=String(label||'').match(/^\d{2}\.\d{2}(\([^)]*\))?/); return m?m[0]:'?'; }
+  var currentSport=null, currentDate=null, currentSort='time';
+
+  function fillSelect(id, items, current, allLabel){
+    var sel=document.getElementById(id); var prev=current;
+    var html='<option value="">'+allLabel+'</option>'+items.map(function(it){ return '<option value="'+esc(it.v)+'"'+(prev===it.v?' selected':'')+'>'+esc(it.label)+(it.n!=null?' ('+it.n+')':'')+'</option>'; }).join('');
+    sel.innerHTML=html; sel.value=prev||'';
+    sel.closest('.sel-wrap').classList.toggle('on', !!prev);
+  }
+  function renderFilterOptions(groups){
+    // 종목·리그·날짜 옵션은 서로 연동: 종목 고르면 그 종목의 리그만, 날짜는 전체
+    var sportCounts={}, leagueCounts={}, dateCounts={};
+    groups.forEach(function(g){
+      var sp=sportOf(g.league); sportCounts[sp]=(sportCounts[sp]||0)+1;
+      if(currentSport===null||sp===currentSport){ var l=g.league||'기타'; leagueCounts[l]=(leagueCounts[l]||0)+1; }
+      var dt=dateOf(g.game_date_label); dateCounts[dt]=(dateCounts[dt]||0)+1;
+    });
+    var sports=Object.keys(sportCounts).sort(function(a,b){return sportCounts[b]-sportCounts[a];}).map(function(k){return{v:k,label:k,n:sportCounts[k]};});
+    var leagues=Object.keys(leagueCounts).sort(function(a,b){return leagueCounts[b]-leagueCounts[a];}).map(function(k){return{v:k,label:k,n:leagueCounts[k]};});
+    var dates=Object.keys(dateCounts).sort().map(function(k){return{v:k,label:k,n:dateCounts[k]};});
+    if(currentLeague!==null && !leagueCounts[currentLeague]) currentLeague=null;
+    fillSelect('sel-sport',sports,currentSport,'전체 종목');
+    fillSelect('sel-league',leagues,currentLeague,'전체 리그');
+    fillSelect('sel-date',dates,currentDate,'전체 날짜');
+    var ms=document.getElementById('sel-market'); ms.value=currentMarket; ms.closest('.sel-wrap').classList.toggle('on',currentMarket!=='all');
+    var ss=document.getElementById('sel-sort'); ss.value=currentSort; ss.closest('.sel-wrap').classList.toggle('on',currentSort!=='time');
+    var wt=document.getElementById('watch-toggle'); wt.classList.toggle('on',watchOnly); document.getElementById('watch-count').textContent=Object.keys(watch).length;
+    // 활성 필터 칩
+    var chips=[];
+    if(currentSport)chips.push({k:'sport',t:'종목: '+currentSport});
+    if(currentLeague)chips.push({k:'league',t:'리그: '+currentLeague});
+    if(currentDate)chips.push({k:'date',t:'날짜: '+currentDate});
+    if(currentMarket!=='all')chips.push({k:'market',t:'마켓: '+document.querySelector('#sel-market option[value="'+currentMarket+'"]').textContent});
+    if(watchOnly)chips.push({k:'watch',t:'★ 관심만'});
+    if(valueOnly)chips.push({k:'value',t:'밸류 +5%↑'});
+    if(movedOnly)chips.push({k:'moved',t:'⚡ 1h 변동만'});
+    if(searchText)chips.push({k:'search',t:'검색: '+searchText});
+    document.getElementById('active-filters').innerHTML=chips.map(function(c){return'<span class="af" data-clear="'+c.k+'">'+esc(c.t)+'<span class="x">✕</span></span>';}).join('');
+  }
+  function clearFilter(k){
+    if(k==='sport')currentSport=null; else if(k==='league')currentLeague=null; else if(k==='date')currentDate=null;
+    else if(k==='market')currentMarket='all'; else if(k==='watch')watchOnly=false; else if(k==='moved')movedOnly=false; else if(k==='value'){valueOnly=false;document.querySelector('#value-tabs button')&&document.querySelector('#value-tabs button').classList.remove('active');}
+    else if(k==='search'){searchText='';searchEl.value='';}
+    else if(k==='all'){currentSport=null;currentLeague=null;currentDate=null;currentMarket='all';currentSort='time';watchOnly=false;valueOnly=false;movedOnly=false;searchText='';searchEl.value='';var vb=document.querySelector('#value-tabs button');if(vb)vb.classList.remove('active');}
+    render();
+  }
+  document.getElementById('active-filters').addEventListener('click',function(e){ var c=e.target.closest('[data-clear]'); if(c)clearFilter(c.getAttribute('data-clear')); });
+  document.getElementById('filter-reset').addEventListener('click',function(){clearFilter('all');});
+  document.getElementById('collapse-all').addEventListener('click',function(){
+    var bs=Array.prototype.slice.call(main.querySelectorAll('.game-block')); if(!bs.length)return;
+    var anyOpen=bs.some(function(b){return !b.classList.contains('collapsed');});
+    bs.forEach(function(b){ var g=b.getAttribute('data-group'); if(anyOpen){collapsed[g]=true;} else {delete collapsed[g];} b.classList.toggle('collapsed',anyOpen); });
+    saveCollapsed(); this.textContent=anyOpen?'전체 펼치기':'전체 접기';
+  });
+  document.getElementById('sel-sport').addEventListener('change',function(){ currentSport=this.value||null; currentLeague=null; render(); });
+  document.getElementById('sel-league').addEventListener('change',function(){ currentLeague=this.value||null; render(); });
+  document.getElementById('sel-date').addEventListener('change',function(){ currentDate=this.value||null; render(); });
+  document.getElementById('sel-market').addEventListener('change',function(){ currentMarket=this.value||'all'; render(); });
+  document.getElementById('sel-sort').addEventListener('change',function(){ currentSort=this.value||'time'; render(); });
+  document.getElementById('watch-toggle').addEventListener('click',function(){ watchOnly=!watchOnly; render(); });
+  document.getElementById('moved-toggle').addEventListener('click',function(){ movedOnly=!movedOnly; render(); });
+  var moreOpen=lsGet('toto.more', window.innerWidth>900);
+  function applyMore(){ document.getElementById('filter-more').classList.toggle('open',moreOpen); var b=document.getElementById('more-toggle'); b.classList.toggle('on',moreOpen); b.textContent=moreOpen?'필터 접기 ▴':'필터 더보기 ▾'; lsSet('toto.more',moreOpen); }
+  document.getElementById('more-toggle').addEventListener('click',function(){ moreOpen=!moreOpen; applyMore(); }); applyMore();
+
+  function sortGroups(list){
+    var by=currentSort;
+    function firstMl(g){ var m=g.markets.find(function(x){return marketClass(x)==='ml';})||g.markets[0]; return m; }
+    function homeOdds(g){ var m=firstMl(g); var v=m?num(m.home_odds):null; return v===null?Infinity:v; }
+    function minMargin(g){ var ms=g.markets.map(marginOf).filter(function(x){return x!==null;}); return ms.length?Math.min.apply(null,ms):Infinity; }
+    var cmpTime=function(a,b){return (parseKstEpoch(a.game_date_label)||0)-(parseKstEpoch(b.game_date_label)||0);};
+    if(by==='league') list.sort(function(a,b){ var l=String(a.league||'').localeCompare(String(b.league||''),'ko'); return l||cmpTime(a,b); });
+    else if(by==='no') list.sort(function(a,b){ return (+a.markets[0].game_no||0)-(+b.markets[0].game_no||0); });
+    else if(by==='fav') list.sort(function(a,b){ return homeOdds(a)-homeOdds(b); });
+    else if(by==='dog') list.sort(function(a,b){ return homeOdds(b)-homeOdds(a); });
+    else if(by==='margin') list.sort(function(a,b){ return minMargin(a)-minMargin(b); });
+    else list.sort(cmpTime);
+    return list;
+  }
+
+  // ── 셀 렌더 ──
+  function trendBadge(site, calc){
+    // 와이즈토토가 표시한 화살표(site) 우선, 없으면 우리 10분 비교값(calc)
+    var t = site==='up'||site==='down' ? site : (calc==='up'||calc==='down' ? calc : null);
+    if(!t) return '';
+    var src = (site==='up'||site==='down') ? '와이즈토토 표시' : '직전 폴링 대비';
+    return '<span class="trend-badge '+t+'" title="'+src+'">배당'+t+'</span>';
+  }
+  function centerValue(m){ if(isHandicap(m.bet_type)||isOverUnder(m.bet_type)){var l=parseLine(m.bet_type);return l!==null?l:'';} return hasOdds(m.draw_odds)?m.draw_odds:''; }
+  function marketLabel(bt){ if(!bt)return''; var t=String(bt).trim(); if(isHandicap(t)||isOverUnder(t))return''; return'<span class="market-label">'+esc(t)+'</span>'; }
+  function sideHtml(m, order){
+    var odds=order==='home'?m.home_odds:m.away_odds, calc=order==='home'?m.home_odds_trend:m.away_odds_trend, site=order==='home'?m.home_site_trend:m.away_site_trend, bt=m.bet_type;
+    var badge=isHandicap(bt)?'<span class="odds-badge">H</span>':'';
+    var sub='';
+    var ip=implied(odds);
+    if(ip!==null){ sub='<span class="odds-sub">'+fmtPct(ip); var ed=edgeOf(m,order); if(ed!==null)sub+=' · <span class="edge '+(ed>=0?'pos':'neg')+'">'+(ed>=0?'+':'')+(ed*100).toFixed(1)+'%</span>'; sub+='</span>'; }
+    var oddsSpan='<span class="odds-wrap"><span class="odds-val">'+badge+(hasOdds(odds)?odds+trendBadge(site,calc):'-')+'</span>'+sub+'</span>';
+    var nameSpan = isOverUnder(bt)
+      ? (order==='home'?'<span class="team-name over"><span class="ou-arrow">▲</span>오버</span>':'<span class="team-name under">언더<span class="ou-arrow">▼</span></span>')
+      : '<span class="team-name">'+esc((order==='home'?m.home_team:m.away_team)||'미정')+'</span>';
+    return order==='home'?(nameSpan+oddsSpan):(oddsSpan+nameSpan);
+  }
+  function pillAttrs(m, order){
+    var odds=order==='home'?m.home_odds:m.away_odds, pickable=hasOdds(odds)&&!archiveMode;
+    var label=isOverUnder(m.bet_type)?(order==='home'?'오버':'언더'):((order==='home'?m.home_team:m.away_team)||'미정');
+    var key=String(m.game_no)+':'+order, gid=String(m.group_id||m.game_no);
+    var sel=selections[gid]&&selections[gid].key===key;
+    var ed=edgeOf(m,order); var val=ed!==null&&ed>=VALUE_EDGE;
+    return' class="side-pill '+(order==='home'?'home-side':'away-side')+(pickable?' pickable':' disabled')+(sel?' selected':'')+(val?' value':'')+'" data-key="'+key+'" data-game="'+m.game_no+'" data-group="'+esc(gid)+'" data-side="'+order+'" data-odds="'+(hasOdds(odds)?odds:'')+'" data-label="'+esc(label)+'"';
+  }
+  function marketLineHtml(m){
+    var isUp=m.market_status_tag===UPCOMING_TAG; var mg=marginOf(m);
+    var h='<div class="market-line" id="row-'+m.game_no+'" data-mkt="'+marketClass(m)+'">';
+    h+='<div class="line-no">'+(m.game_no!=null?m.game_no:'')+'</div>';
+    h+='<div class="line-time '+timeClass(m.game_date_label)+'">'+esc(m.game_date_label||'')+'</div>';
+    h+='<div'+pillAttrs(m,'home')+'>'+sideHtml(m,'home')+'</div>';
+    h+='<div class="line-center">'+centerValue(m)+marketLabel(m.bet_type)+(mg!==null?'<span class="margin">마진 '+(mg*100).toFixed(1)+'%</span>':'')+'</div>';
+    h+='<div'+pillAttrs(m,'away')+'>'+sideHtml(m,'away')+'</div>';
+    h+='<div class="line-status"><span class="market-tag'+(isUp?' upcoming':'')+'">'+esc(m.market_status_tag||'-')+'</span></div></div>';
+    return h;
+  }
+  // 최근 N분 내 배당 변동 여부: 히스토리가 있으면 그걸로, 없으면 site/odds trend로 근사
+  var MOVED_MIN=60;
+  function movedRecently(game){
+    var since=Date.now()-MOVED_MIN*60000;
+    if(HIST){
+      return game.markets.some(function(m){ var h=histFor(m.game_no); if(!h||h.length<2)return false; for(var i=1;i<h.length;i++){ var t=new Date(h[i][0]).getTime(); if(!isNaN(t)&&t>=since)return true; } return false; });
+    }
+    return game.markets.some(function(m){ return ['home_site_trend','away_site_trend','draw_site_trend','home_odds_trend','away_odds_trend','draw_odds_trend'].some(function(k){return m[k]==='up'||m[k]==='down';}); });
+  }
+  function miniOdds(game){
+    var m=game.markets.find(function(x){return marketClass(x)==='ml';})||game.markets.find(function(x){return marketClass(x)==='3way';})||game.markets[0];
+    if(!m)return'';
+    var gid=String(m.group_id||m.game_no);
+    var f=function(v,side){
+      if(!hasOdds(v))return'<span class="dim">-</span>';
+      if(!side||archiveMode)return'<span>'+v+'</span>';
+      var key=String(m.game_no)+':'+side, sel=selections[gid]&&selections[gid].key===key;
+      return'<span class="mini-pick'+(sel?' selected':'')+'" data-mini="'+m.game_no+'" data-mini-side="'+side+'" title="클릭해서 담기">'+v+'</span>';
+    };
+    return'<span class="lb-mini">'+f(m.home_odds,'home')+f(m.draw_odds,null)+f(m.away_odds,'away')+'</span>';
+  }
+  function gameBlockHtml(game, markets){
+    var ended=!isUpcoming(game), col=!!collapsed[game.group_id], w=!!watch[game.group_id], mv=movedRecently(game);
+    var h='<div class="game-block'+(ended?' ended':'')+(col?' collapsed':'')+(w?' watched':'')+'" data-group="'+esc(game.group_id)+'" tabindex="-1">';
+    h+='<div class="league-bar"><span class="lb-left"><button class="star-btn'+(w?' on':'')+'" data-star="'+esc(game.group_id)+'" title="관심 경기">'+(w?'★':'☆')+'</button><span>'+esc(game.league||'기타')+'</span>'+(mv?'<span class="moved-mark">⚡ 변동</span>':'')+'</span>';
+    h+='<span class="lb-right"><span>'+esc(game.home_team||'')+' vs '+esc(game.away_team||'')+'</span>'+miniOdds(game)+'<button class="detail-btn" data-detail="'+esc(game.group_id)+'">상세</button><span>'+markets.length+'</span><span class="caret">▾</span></span></div>';
+    h+=markets.map(marketLineHtml).join('')+'</div>'; return h;
+  }
+  function matchesSearch(g){ if(!searchText)return true; var q=searchText.toLowerCase(); return (g.home_team||'').toLowerCase().indexOf(q)>=0||(g.away_team||'').toLowerCase().indexOf(q)>=0||g.markets.some(function(m){return String(m.game_no).indexOf(q)>=0;}); }
+  function filterMarkets(g){
+    var mk=currentMarket==='all'?g.markets:g.markets.filter(function(m){return marketClass(m)===currentMarket;});
+    if(valueOnly)mk=mk.filter(function(m){var a=edgeOf(m,'home'),b=edgeOf(m,'away'),c=edgeOf(m,'draw');return (a!==null&&a>=VALUE_EDGE)||(b!==null&&b>=VALUE_EDGE)||(c!==null&&c>=VALUE_EDGE);});
+    return mk;
+  }
+  var lastGroups=[], movedOnly=false, focusIdx=-1;
+  function render(){
+    var groups=groupRows(data.rows||[]); lastGroups=groups; renderSummary(groups); renderFilterOptions(groups);
+    var movedCnt=0; groups.forEach(function(g){ if(movedRecently(g))movedCnt++; });
+    document.getElementById('moved-count').textContent=movedCnt; document.getElementById('moved-toggle').classList.toggle('on',movedOnly);
+    var out=[];
+    var filtered=groups.filter(function(g){
+      if(currentFilter==='upcoming'&&!isUpcoming(g))return false;
+      if(currentSport!==null&&sportOf(g.league)!==currentSport)return false;
+      if(currentLeague!==null&&(g.league||'기타')!==currentLeague)return false;
+      if(currentDate!==null&&dateOf(g.game_date_label)!==currentDate)return false;
+      if(watchOnly&&!watch[g.group_id])return false;
+      if(movedOnly&&!movedRecently(g))return false;
+      if(!matchesSearch(g))return false;
+      return true;
+    });
+    sortGroups(filtered).forEach(function(g){ var mk=filterMarkets(g); if(!mk.length)return; out.push(gameBlockHtml(g,mk)); });
+    main.innerHTML=out.length?out.join(''):'<div class="empty-state">'+(data.rows&&data.rows.length?'조건에 맞는 경기가 없습니다':'아직 데이터가 없습니다. 텔레그램 봇의 수집이 완료되면 표시됩니다.')+'</div>';
+    applyFocus(false);
+  }
+
+  // ── 탭/필터 이벤트 ──
+  function bindTabs(id, attr, cb){ document.getElementById(id).addEventListener('click',function(e){ var b=e.target.closest('button'); if(!b)return; this.querySelectorAll('button').forEach(function(x){x.classList.remove('active');}); b.classList.add('active'); cb(b.getAttribute(attr)); }); }
+  bindTabs('status-tabs','data-filter',function(v){currentFilter=v;render();});
+  document.getElementById('value-tabs').addEventListener('click',function(e){ var b=e.target.closest('button'); if(!b)return; valueOnly=!valueOnly; b.classList.toggle('active',valueOnly); render(); });
+  var searchTimer=null; var searchEl=document.getElementById('search');
+  searchEl.addEventListener('input',function(){ var v=this.value.trim(); clearTimeout(searchTimer); searchTimer=setTimeout(function(){searchText=v;render();},150); });
+  // 밀도
+  var density=lsGet(LS.density,'normal'); function applyDensity(d){ document.body.classList.remove('density-compact','density-wide'); if(d!=='normal')document.body.classList.add('density-'+d); document.querySelectorAll('#density-tabs button').forEach(function(b){b.classList.toggle('active',b.getAttribute('data-density')===d);}); lsSet(LS.density,d); }
+  bindTabs('density-tabs','data-density',applyDensity); applyDensity(density);
+  // 확률 표시 토글
+  var showProb=lsGet(LS.prob,true); function applyProb(){ document.body.classList.toggle('hide-prob',!showProb); document.getElementById('prob-toggle').classList.toggle('done',showProb); }
+  document.getElementById('prob-toggle').addEventListener('click',function(){showProb=!showProb;lsSet(LS.prob,showProb);applyProb();}); applyProb();
+
+  // 본문 클릭: 접기 / 별 / 상세 / 배당
+  main.addEventListener('click',function(e){
+    var star=e.target.closest('[data-star]'); if(star){ var gid=star.getAttribute('data-star'); if(watch[gid])delete watch[gid]; else watch[gid]=1; lsSet(LS.watch,watch); render(); return; }
+    var det=e.target.closest('[data-detail]'); if(det){ openDetail(det.getAttribute('data-detail')); return; }
+    var mini=e.target.closest('[data-mini]'); if(mini){ var r=rowIndex[mini.getAttribute('data-mini')]; if(r){ var side=mini.getAttribute('data-mini-side'), o=side==='home'?r.home_odds:r.away_odds; if(hasOdds(o)){ var gid=String(r.group_id||r.game_no), key=String(r.game_no)+':'+side; if(selections[gid]&&selections[gid].key===key)delete selections[gid]; else { if(!selections[gid]&&items().length>=MAX_PICKS){setNote('프로토는 최대 '+MAX_PICKS+'경기까지 담을 수 있습니다',true);return;} selections[gid]=makeSel(r,side,parseFloat(o)); cartMinimized=false; } afterCartChange(); } } return; }
+    var bar=e.target.closest('.league-bar'); if(bar){ var blk=bar.closest('.game-block'), g=blk.getAttribute('data-group'); collapsed[g]=!collapsed[g]; if(!collapsed[g])delete collapsed[g]; saveCollapsed(); blk.classList.toggle('collapsed',!!collapsed[g]); return; }
+    var pill=e.target.closest('.side-pill'); if(pill)onPillClick(pill);
+  });
+
+  // ── 스파크라인 툴팁 (2-1) ──
+  var tip=document.getElementById('tip');
+  function sparkSvg(series, w, h, color){
+    var vals=series.filter(function(v){return v!==null&&!isNaN(v);}); if(vals.length<2)return'';
+    var min=Math.min.apply(null,vals), max=Math.max.apply(null,vals); if(max-min<1e-9){max=min+0.1;}
+    var pts=[]; var n=series.length;
+    series.forEach(function(v,i){ if(v===null||isNaN(v))return; var x=(i/(n-1))*(w-4)+2, y=h-2-((v-min)/(max-min))*(h-4); pts.push(x.toFixed(1)+','+y.toFixed(1)); });
+    return'<svg viewBox="0 0 '+w+' '+h+'" width="'+w+'" height="'+h+'"><polyline fill="none" stroke="'+color+'" stroke-width="1.5" points="'+pts.join(' ')+'"/></svg>';
+  }
+  function histFor(gameNo){ if(!HIST)return null; var h=HIST[String(gameNo)]; return Array.isArray(h)&&h.length?h:null; }
+  function fmtTs(iso){ var d=new Date(iso); return isNaN(d.getTime())?String(iso):(String(d.getMonth()+1).padStart(2,'0')+'.'+String(d.getDate()).padStart(2,'0')+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')); }
+  main.addEventListener('mouseover',function(e){
+    var pill=e.target.closest('.side-pill'); if(!pill||!HIST)return;
+    var h=histFor(pill.getAttribute('data-game')); if(!h)return;
+    var idx=pill.getAttribute('data-side')==='home'?1:3; var series=h.map(function(r){return num(r[idx]);});
+    var first=series.find(function(v){return v!==null;}), last=null; for(var i=series.length-1;i>=0;i--){if(series[i]!==null){last=series[i];break;}}
+    var changes=0; for(var j=1;j<series.length;j++){ if(series[j]!==null&&series[j-1]!==null&&series[j]!==series[j-1])changes++; }
+    tip.innerHTML='<div class="tip-title">'+esc(pill.getAttribute('data-label'))+' · '+(first!=null?first:'-')+' → '+(last!=null?last:'-')+'</div>'+sparkSvg(series,150,36,'#e8a33d')+'<div>최초 '+fmtTs(h[0][0])+' · 변동 '+changes+'회 · '+h.length+'회 기록</div>';
+    tip.style.display='block';
+  });
+  main.addEventListener('mousemove',function(e){ if(tip.style.display!=='block')return; var x=e.clientX+14,y=e.clientY+14; if(x+180>window.innerWidth)x=e.clientX-180; if(y+80>window.innerHeight)y=e.clientY-80; tip.style.left=x+'px'; tip.style.top=y+'px'; });
+  main.addEventListener('mouseout',function(e){ if(e.target.closest('.side-pill')&&!(e.relatedTarget&&e.relatedTarget.closest&&e.relatedTarget.closest('.side-pill')===e.target.closest('.side-pill')))tip.style.display='none'; });
+
+  // ── 상세 패널 (2-2) ──
+  var overlay=document.getElementById('overlay'), panel=document.getElementById('panel');
+  function openPanel(title, html){ document.getElementById('panel-title').textContent=title; document.getElementById('panel-body').innerHTML=html; overlay.classList.add('show'); panel.classList.add('show'); }
+  function closePanel(){ overlay.classList.remove('show'); panel.classList.remove('show'); }
+  overlay.addEventListener('click',closePanel); document.getElementById('panel-close').addEventListener('click',closePanel);
+  function multiSpark(h, w, hh){
+    var series=[1,2,3].map(function(idx){return h.map(function(r){return num(r[idx]);});});
+    var all=[].concat.apply([],series).filter(function(v){return v!==null;}); if(all.length<2)return'<div class="hint">기록이 충분하지 않습니다</div>';
+    var min=Math.min.apply(null,all),max=Math.max.apply(null,all); if(max-min<1e-9)max=min+0.1;
+    var colors=['#e7eaf0','#e8a33d','#7cc0ff']; var n=h.length; var out='<svg viewBox="0 0 '+w+' '+hh+'" preserveAspectRatio="none">';
+    series.forEach(function(s,k){ var pts=[]; s.forEach(function(v,i){ if(v===null)return; pts.push(((i/Math.max(1,n-1))*(w-4)+2).toFixed(1)+','+(hh-2-((v-min)/(max-min))*(hh-4)).toFixed(1)); }); if(pts.length>1)out+='<polyline fill="none" stroke="'+colors[k]+'" stroke-width="1.5" points="'+pts.join(' ')+'"/>'; });
+    return out+'</svg>';
+  }
+  function openDetail(gid){
+    var g=lastGroups.find(function(x){return x.group_id===gid;}); if(!g)return;
+    var html='<div class="pmeta">'+esc(g.league||'')+' · '+esc(g.game_date_label||'')+' · '+esc(g.home_team||'')+' vs '+esc(g.away_team||'')+'</div>';
+    g.markets.forEach(function(m){
+      var h=histFor(m.game_no); var lbl=m.bet_type||'승패';
+      html+='<div class="pm"><div class="pm-head"><span>#'+m.game_no+' <b>'+esc(lbl)+'</b></span><span>'+(hasOdds(m.home_odds)?m.home_odds:'-')+' / '+(hasOdds(m.draw_odds)?m.draw_odds:'-')+' / '+(hasOdds(m.away_odds)?m.away_odds:'-')+'</span></div>';
+      if(h){ html+='<div class="pm-chart">'+multiSpark(h,520,80)+'</div><div class="pm-legend"><span class="h">— 홈</span><span class="d">— 무/기준</span><span class="a">— 원정</span><span>최초 '+fmtTs(h[0][0])+' · '+h.length+'회 기록</span></div>'; }
+      else html+='<div class="hint">배당 히스토리 없음</div>';
+      html+='</div>';
+    });
+    openPanel(esc(g.home_team||'')+' vs '+esc(g.away_team||''), html);
+  }
+
+  // ── 카트 ──
+  // selections[group_id] = 선택 1개 (프로토 규칙: 한 경기당 1개)
+  var selections={}, rowIndex={};
+  function buildRowIndex(){ rowIndex={}; (data.rows||[]).forEach(function(r){rowIndex[String(r.game_no)]=r;}); }
+  function makeSel(r, side, odds){ var ou=isOverUnder(r.bet_type); return { key:String(r.game_no)+':'+side, game_no:String(r.game_no), group_id:String(r.group_id||r.game_no), side:side, label:ou?(side==='home'?'오버':'언더'):((side==='home'?r.home_team:r.away_team)||'미정'), odds:odds, bet_type:r.bet_type||'', line:(isHandicap(r.bet_type)||isOverUnder(r.bet_type))?parseLine(r.bet_type):null, league:r.league||'', time:r.game_date_label||'', home:r.home_team||'', away:r.away_team||'', isOU:ou, round:data.round?data.round.round:null }; }
+  function currentOdds(sel){ var r=rowIndex[sel.game_no]; if(!r)return null; return num(sel.side==='home'?r.home_odds:r.away_odds); }
+  function items(){ return Object.keys(selections).map(function(k){return selections[k];}); }
+  function setNote(t, err){ var n=document.getElementById('cart-note'); if(!t){n.style.display='none';return;} n.textContent=t; n.className='cart-note'+(err?' err':''); n.style.display='block'; }
+  function onPillClick(pill){
+    if(!pill.classList.contains('pickable'))return;
+    var gid=pill.getAttribute('data-group'), key=pill.getAttribute('data-key'), r=rowIndex[pill.getAttribute('data-game')]; if(!r)return;
+    if(selections[gid]&&selections[gid].key===key){ delete selections[gid]; }
+    else {
+      if(!selections[gid]&&items().length>=MAX_PICKS){ setNote('프로토는 최대 '+MAX_PICKS+'경기까지 담을 수 있습니다',true); return; }
+      var replaced=selections[gid]&&selections[gid].game_no!==String(r.game_no);
+      selections[gid]=makeSel(r,pill.getAttribute('data-side'),parseFloat(pill.getAttribute('data-odds')));
+      cartMinimized=false;
+      if(replaced)setNote('같은 경기의 다른 마켓으로 교체했습니다 (한 경기당 1개)');
+    }
+    afterCartChange();
+  }
+  function afterCartChange(){ syncPills(); renderCart(); writeHash(); }
+  function syncPills(){
+    document.querySelectorAll('.side-pill[data-key]').forEach(function(p){ var g=p.getAttribute('data-group'),k=p.getAttribute('data-key'); p.classList.toggle('selected',!!(selections[g]&&selections[g].key===k)); });
+    document.querySelectorAll('.mini-pick[data-mini]').forEach(function(p){ var r=rowIndex[p.getAttribute('data-mini')]; if(!r)return; var g=String(r.group_id||r.game_no), k=String(r.game_no)+':'+p.getAttribute('data-mini-side'); p.classList.toggle('selected',!!(selections[g]&&selections[g].key===k)); });
+  }
+  function pickText(it){ return (it.isOU?(it.side==='home'?'▲오버':'언더▼'):it.label)+(it.line!=null?' '+it.line:''); }
+  function totalOdds(){ return items().reduce(function(a,it){var n=currentOdds(it);var o=n!==null?n:it.odds;return a*(isNaN(o)?1:o);},1); }
+  var stakeEl=document.getElementById('stake'); stakeEl.value=lsGet(LS.stake,'')||'';
+  stakeEl.addEventListener('input',function(){ lsSet(LS.stake,this.value); renderPayout(); });
+  function renderPayout(){ var n=items().length, s=parseFloat(stakeEl.value); document.getElementById('payout').textContent=(n&&s>0)?Math.floor(totalOdds()*s).toLocaleString('ko-KR')+'원':'-'; }
+  function groupMarkets(gid){ return (data.rows||[]).filter(function(r){return String(r.group_id||r.game_no)===String(gid);}); }
+  function itemBadges(it){
+    var b=[]; var r=rowIndex[it.game_no];
+    var ep=parseKstEpoch(it.time); if(ep!==null&&ep<=Date.now())b.push('<span class="ci-badge err">시작됨</span>');
+    if(!r)b.push('<span class="ci-badge err">현재 회차에 없음</span>');
+    else if(currentOdds(it)===null)b.push('<span class="ci-badge err">배당 없음</span>');
+    else if(r.market_status_tag&&r.market_status_tag!==UPCOMING_TAG)b.push('<span class="ci-badge warn">'+esc(r.market_status_tag)+'</span>');
+    return b.length?'<div class="ci-badges">'+b.join('')+'</div>':'';
+  }
+  function switchHtml(it){
+    var ms=groupMarkets(it.group_id); if(ms.length<2)return'';
+    var opts=ms.map(function(m){ var lbl=(m.bet_type||'승패'); var o=it.side==='home'?m.home_odds:m.away_odds; var dis=!hasOdds(o); return'<option value="'+m.game_no+'"'+(String(m.game_no)===it.game_no?' selected':'')+(dis?' disabled':'')+'>'+esc(lbl)+(hasOdds(o)?' · '+o:' · 배당 없음')+'</option>'; }).join('');
+    return'<div class="ci-switch"><select data-switch="'+esc(it.group_id)+'" title="같은 경기의 다른 마켓으로 교체">'+opts+'</select></div>';
+  }
+  // 카트 표시: 비어있거나 사용자가 접으면 숨기고 FAB만 표시
+  var cartMinimized=false;
+  function updateCartVisibility(){
+    var n=items().length, cartEl=document.getElementById('cart'), fab=document.getElementById('cart-fab');
+    var hide=(n===0)||cartMinimized;
+    cartEl.classList.toggle('hidden',hide); fab.classList.toggle('show',hide);
+    document.getElementById('cart-fab-count').textContent=n;
+    fab.title=n?'카트 열기':'배당을 클릭하면 담깁니다';
+  }
+  document.getElementById('cart-fab').addEventListener('click',function(){ cartMinimized=false; updateCartVisibility(); if(window.innerWidth<=900)document.getElementById('cart').classList.add('open'); });
+  document.getElementById('cart-min').addEventListener('click',function(e){ e.stopPropagation(); cartMinimized=true; updateCartVisibility(); });
+  function renderCart(){
+    var body=document.getElementById('cart-body'), list=items();
+    document.getElementById('cart-count').textContent=list.length+'/'+MAX_PICKS;
+    updateCartVisibility();
+    if(!list.length){ body.innerHTML='<div class="cart-empty">배당을 클릭하면 여기에 담깁니다</div>'; document.getElementById('cart-total').textContent='-'; setNote(''); renderPayout(); return; }
+    var changed=0, started=0, missing=0;
+    body.innerHTML=list.map(function(it){
+      var now=currentOdds(it), use=now!==null?now:it.odds, diff=now!==null&&Math.abs(now-it.odds)>1e-9; if(diff)changed++;
+      var ep=parseKstEpoch(it.time); if(ep!==null&&ep<=Date.now())started++; if(now===null)missing++;
+      var oddsHtml=diff?'<span class="pick-odds '+(now>it.odds?'up-chg':'down-chg')+'"><span class="was">'+it.odds+'</span>'+now+'</span>':'<span class="pick-odds">'+use+'</span>';
+      return'<div class="cart-item'+(diff?' changed':'')+'"><button class="ci-remove" type="button" data-remove="'+esc(it.group_id)+'">✕</button><div class="ci-meta">#'+it.game_no+' · '+esc(it.league)+' · '+esc(it.time)+' · '+esc(it.bet_type||'승패')+'</div><div class="ci-match" data-goto="'+it.game_no+'">'+esc(it.home)+' vs '+esc(it.away)+'</div><div class="ci-pick"><span class="pick-label'+(it.isOU?(it.side==='home'?' over':' under'):'')+'">'+esc(pickText(it))+'</span>'+oddsHtml+'</div>'+itemBadges(it)+switchHtml(it)+'</div>';
+    }).join('');
+    document.getElementById('cart-total').textContent=totalOdds().toFixed(2);
+    var notes=[]; if(started)notes.push('시작된 경기 '+started+'건'); if(missing)notes.push('배당 없는 항목 '+missing+'건'); if(changed)notes.push('배당 변동 '+changed+'건 (합산은 현재 기준)');
+    if(started||missing)setNote(notes.join(' · '),true); else if(changed)setNote(notes.join(' · ')); else setNote('');
+    renderPayout();
+  }
+  document.getElementById('cart-body').addEventListener('change',function(e){
+    var sw=e.target.closest('[data-switch]'); if(!sw)return; var gid=sw.getAttribute('data-switch'), cur=selections[gid]; if(!cur)return;
+    var r=rowIndex[sw.value]; if(!r)return; var side=cur.side; var o=side==='home'?r.home_odds:r.away_odds; if(!hasOdds(o)){renderCart();return;}
+    selections[gid]=makeSel(r,side,parseFloat(o)); afterCartChange();
+  });
+  document.getElementById('cart-body').addEventListener('click',function(e){ var rm=e.target.closest('[data-remove]'); if(rm){delete selections[rm.getAttribute('data-remove')];setNote('');afterCartChange();return;} var go=e.target.closest('[data-goto]'); if(go)gotoRow(go.getAttribute('data-goto')); });
+  document.getElementById('cart-clear').addEventListener('click',function(e){ e.stopPropagation(); selections={}; setNote(''); afterCartChange(); });
+  document.getElementById('cart-head').addEventListener('click',function(e){ if(e.target.closest('.cart-btn'))return; if(window.innerWidth<=900)document.getElementById('cart').classList.toggle('open'); });
+  function gotoRow(gameNo){
+    var el=document.getElementById('row-'+gameNo);
+    if(!el){ currentFilter='all'; document.querySelectorAll('#status-tabs button').forEach(function(b){b.classList.toggle('active',b.getAttribute('data-filter')==='all');}); clearFilter('all'); el=document.getElementById('row-'+gameNo); if(!el)return; }
+    var blk=el.closest('.game-block'); if(blk&&blk.classList.contains('collapsed')){delete collapsed[blk.getAttribute('data-group')];saveCollapsed();blk.classList.remove('collapsed');}
+    el.scrollIntoView({behavior:'smooth',block:'center'}); el.classList.remove('hl'); void el.offsetWidth; el.classList.add('hl');
+    if(window.innerWidth<=900)document.getElementById('cart').classList.remove('open');
+  }
+
+  // 복사 / 링크
+  function cartAsText(){ var l=items(); if(!l.length)return''; var head='[프로토 '+(data.round?data.round.round+'회차':'')+'] '+l.length+'경기 · 합산 '+totalOdds().toFixed(2); var s=parseFloat(stakeEl.value); if(s>0)head+=' · '+s.toLocaleString('ko-KR')+'원 → '+Math.floor(totalOdds()*s).toLocaleString('ko-KR')+'원'; return head+'\n'+l.map(function(it){var n=currentOdds(it);var o=n!==null?n:it.odds;return it.game_no+' '+it.league+' '+it.time+' '+it.home+' vs '+it.away+' — '+pickText(it)+' '+o;}).join('\n'); }
+  function copyText(text){ if(navigator.clipboard&&navigator.clipboard.writeText)return navigator.clipboard.writeText(text); return new Promise(function(res,rej){var ta=document.createElement('textarea');ta.value=text;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();try{document.execCommand('copy')?res():rej();}catch(e){rej(e);}document.body.removeChild(ta);}); }
+  function flash(btn, ok, label){ var orig=btn.getAttribute('data-orig')||btn.textContent; btn.setAttribute('data-orig',orig); btn.textContent=label; btn.classList.toggle('done',ok); setTimeout(function(){btn.textContent=orig;btn.classList.remove('done');},1400); }
+  document.getElementById('cart-copy').addEventListener('click',function(e){ e.stopPropagation(); var b=this,t=cartAsText(); if(!t){flash(b,false,'비어있음');return;} copyText(t).then(function(){flash(b,true,'복사됨');},function(){flash(b,false,'실패');}); });
+  document.getElementById('cart-share').addEventListener('click',function(e){ e.stopPropagation(); var b=this; if(!items().length){flash(b,false,'비어있음');return;} copyText(location.href).then(function(){flash(b,true,'링크 복사됨');},function(){flash(b,false,'실패');}); });
+
+  // 해시
+  function writeHash(){ var s=items().map(function(it){return it.game_no+(it.side==='home'?'h':'a')+'@'+it.odds;}).join(','); var url=location.pathname+location.search+(s?'#picks='+s:''); try{history.replaceState(null,'',url);}catch(e){location.hash=s?'picks='+s:'';} }
+  function readHash(){ var m=location.hash.match(/picks=([^&]+)/); if(!m)return; m[1].split(',').forEach(function(tok){ var p=tok.match(/^(\d+)([ha])@([\d.]+)$/); if(!p)return; var r=rowIndex[p[1]]; if(!r)return; var side=p[2]==='h'?'home':'away'; if(!hasOdds(side==='home'?r.home_odds:r.away_odds))return; var gid=String(r.group_id||r.game_no); if(Object.keys(selections).length>=MAX_PICKS)return; selections[gid]=makeSel(r,side,parseFloat(p[3])); }); }
+
+  // ── 슬립 저장 / 복기 (1-2, 3-3) ──
+  var slips=lsGet(LS.slips,[]);
+  function saveSlip(){ var l=items(); if(!l.length){flash(document.getElementById('cart-save'),false,'비어있음');return;} var name=prompt('슬립 이름',(data.round?data.round.round+'회차 ':'')+new Date().toLocaleString('ko-KR',{hour12:false,month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})); if(!name)return; slips.unshift({name:name,round:data.round?data.round.round:null,year:data.round?data.round.year:null,at:new Date().toISOString(),total:totalOdds(),picks:l.map(function(it){return{game_no:it.game_no,group_id:it.group_id,side:it.side,odds:it.odds,label:it.label,bet_type:it.bet_type,line:it.line,home:it.home,away:it.away,league:it.league,time:it.time,isOU:it.isOU};})}); slips=slips.slice(0,30); lsSet(LS.slips,slips); flash(document.getElementById('cart-save'),true,'저장됨'); renderSlips(); }
+  document.getElementById('cart-save').addEventListener('click',function(e){e.stopPropagation();saveSlip();});
+  // 결과 판정: status tag → pick hit? (판정 불가 시 null)
+  function judgePick(p, row){
+    if(!row)return null; var t=String(row.market_status_tag||''); if(!t||t===UPCOMING_TAG||/회|전반|후반|중/.test(t))return null;
+    var cls=marketClass(row);
+    if(cls==='u'){ if(/오버/.test(t))return p.side==='home'; if(/언더/.test(t))return p.side==='away'; return null; }
+    if(cls==='h'){ if(/핸디승/.test(t))return p.side==='home'; if(/핸디패/.test(t))return p.side==='away'; return null; }
+    if(cls==='ml'||cls==='3way'){ if(/홈승/.test(t))return p.side==='home'; if(/홈패|원정승/.test(t))return p.side==='away'; if(/①|무/.test(t))return false; return null; }
+    if(cls==='sum'){ if(/홀/.test(t))return p.side==='home'; if(/짝/.test(t))return p.side==='away'; return null; }
+    return null;
+  }
+  function rowForSlipPick(p){ // 현재 데이터 또는 아카이브에서 찾기
+    var r=rowIndex[p.game_no]; if(r&&(!p.round||!data.round||data.round.round===p.round))return r;
+    var ad=window.TOTO_ARCHIVE_DATA[p.round]; if(ad&&ad.rows){ for(var i=0;i<ad.rows.length;i++)if(String(ad.rows[i].game_no)===String(p.game_no))return ad.rows[i]; }
+    return null;
+  }
+  var cmpSel={};
+  function renderSlipHead(){ var n=Object.keys(cmpSel).filter(function(k){return cmpSel[k];}).length; document.getElementById('slips-count').innerHTML=slips.length+'개 <button class="cart-btn" id="slip-cmp" type="button"'+(n<2?' disabled':'')+'>비교 '+(n?'('+n+')':'')+'</button>'; }
+  function renderSlips(){
+    var box=document.getElementById('slips'), list=document.getElementById('slips-list'); if(!slips.length){box.style.display='none';return;} box.style.display='block';
+    renderSlipHead();
+    list.innerHTML=slips.map(function(s,i){ var hit=0,miss=0,pend=0; s.picks.forEach(function(p){var j=judgePick(p,rowForSlipPick(p)); if(j===true)hit++;else if(j===false)miss++;else pend++;}); var score=(hit+miss)?'<span class="slip-score '+(miss?'miss':'hit')+'">'+hit+'/'+(hit+miss)+' 적중'+(pend?' · '+pend+' 대기':'')+'</span>':'<span class="slip-score">'+pend+'경기 대기</span>'; return'<div class="slip-row"><span><input type="checkbox" data-cmp="'+i+'"'+(cmpSel[i]?' checked':'')+'><span class="slip-name" data-load="'+i+'">'+esc(s.name)+'</span> <span class="slip-meta">'+s.picks.length+'경기 · '+s.total.toFixed(2)+'</span></span><span>'+score+' <button class="slip-del" data-del="'+i+'" title="삭제">✕</button></span></div>'; }).join('');
+  }
+  function compareSlips(){
+    var idx=Object.keys(cmpSel).filter(function(k){return cmpSel[k];}).map(Number).slice(0,3); if(idx.length<2)return;
+    var sl=idx.map(function(i){return slips[i];});
+    var keys=[]; var map={};
+    sl.forEach(function(s,ci){ s.picks.forEach(function(p){ var k=String(p.group_id||p.game_no); if(!map[k]){map[k]={label:p.home+' vs '+p.away,league:p.league,cols:[]};keys.push(k);} map[k].cols[ci]=p; }); });
+    var html='<div class="pmeta">슬립 '+sl.length+'개 비교 · 경기 '+keys.length+'개 (초록=같은 선택, 주황=다른 선택)</div><table class="cmp-table"><thead><tr><th>경기</th>'+sl.map(function(s){return'<th>'+esc(s.name)+'<br><span class="odds">'+s.total.toFixed(2)+'</span></th>';}).join('')+'</tr></thead><tbody>';
+    keys.forEach(function(k){ var row=map[k]; var vals=row.cols.map(function(p){return p?(p.game_no+':'+p.side):null;}); var filled=vals.filter(Boolean); var same=filled.length>1&&filled.every(function(v){return v===filled[0];}); var cls=filled.length>1?(same?'same':'diff'):'';
+      html+='<tr><td>'+esc(row.league)+'<br>'+esc(row.label)+'</td>'+row.cols.map(function(p,ci){ p=sl[ci].picks.find(function(x){return String(x.group_id||x.game_no)===k;}); return'<td class="'+cls+'">'+(p?esc((p.bet_type||'승패')+' · '+(p.isOU?(p.side==='home'?'▲오버':'언더▼'):p.label)+(p.line!=null?' '+p.line:''))+' <span class="odds">'+p.odds+'</span>':'<span class="muted">—</span>')+'</td>'; }).join('')+'</tr>'; });
+    html+='</tbody></table>';
+    var common=keys.filter(function(k){return map[k].cols.filter(Boolean).length===sl.length;}).length;
+    html+='<div class="hint" style="margin-top:10px">공통 경기 '+common+'개 · 한쪽에만 있는 경기 '+(keys.length-common)+'개</div>';
+    openPanel('슬립 비교', html);
+  }
+  document.getElementById('slips').addEventListener('click',function(e){ if(e.target.id==='slip-cmp'){compareSlips();} });
+  document.getElementById('slips-list').addEventListener('change',function(e){ var c=e.target.closest('[data-cmp]'); if(!c)return; cmpSel[c.getAttribute('data-cmp')]=c.checked; renderSlipHead(); });
+  document.getElementById('slips-list').addEventListener('click',function(e){
+    var del=e.target.closest('[data-del]'); if(del){ slips.splice(+del.getAttribute('data-del'),1); lsSet(LS.slips,slips); cmpSel={}; renderSlips(); return; }
+    var ld=e.target.closest('[data-load]'); if(ld){ if(archiveMode)return; var s=slips[+ld.getAttribute('data-load')]; selections={}; s.picks.forEach(function(p){ var r=rowIndex[p.game_no]; if(!r)return; selections[String(r.group_id||r.game_no)]=makeSel(r,p.side,p.odds); }); setNote(Object.keys(selections).length<s.picks.length?'현재 회차에 없는 경기는 제외됐습니다':''); afterCartChange(); }
+  });
+
+  // ── 아카이브 (2-3) ──
+  function setupArchive(){
+    var sel=document.getElementById('round-select'); if(!ARCHIVE||!ARCHIVE.length)return;
+    var cur=liveData.round?liveData.round.round:null;
+    sel.innerHTML='<option value="live">현재 '+(cur||'')+'회차</option>'+ARCHIVE.filter(function(a){return a.round!==cur;}).sort(function(a,b){return b.round-a.round;}).map(function(a){return'<option value="'+a.round+'">'+(a.year||'')+'년 '+a.round+'회차</option>';}).join('');
+    sel.style.display='inline-block';
+    sel.addEventListener('change',function(){ var v=this.value; if(v==='live'){switchData(liveData,false);return;} var a=ARCHIVE.find(function(x){return String(x.round)===v;}); if(!a)return; if(window.TOTO_ARCHIVE_DATA[a.round]){switchData(window.TOTO_ARCHIVE_DATA[a.round],true);return;} var s=document.createElement('script'); s.src=a.file; s.onload=function(){ var d=window.TOTO_ARCHIVE_DATA[a.round]; if(d)switchData(d,true); }; s.onerror=function(){alert('아카이브 파일을 불러오지 못했습니다: '+a.file);}; document.head.appendChild(s); });
+  }
+  function switchData(d, isArchive){ data=d; archiveMode=isArchive; document.getElementById('archive-badge').style.display=isArchive?'inline-block':'none'; buildRowIndex(); if(isArchive){selections={};} else readHash(); renderMeta(); render(); renderCart(); renderSlips(); }
+
+  // ── 알림 규칙 (3-2) ──
+  var rules=lsGet(LS.rules,[]);
+  function rulesHtml(){
+    var opts=lastGroups.map(function(g){return'<option value="'+esc(g.group_id)+'">'+esc((g.league||'')+' '+(g.home_team||'')+' vs '+(g.away_team||''))+'</option>';}).join('');
+    var list=rules.map(function(r,i){return'<div class="rule-row"><span>'+esc(r.scope==='watch'?'★ 관심 경기 전체':r.scope==='all'?'모든 경기':('경기 '+r.group_id))+' · '+esc(r.market||'모든 마켓')+' · 변동 ≥ '+r.threshold+'</span><button data-rdel="'+i+'">✕</button></div>';}).join('');
+    return'<div class="rule-form"><label>대상<select id="r-scope"><option value="watch">★ 관심 경기 전체</option><option value="all">모든 경기</option><option value="one">특정 경기</option></select></label><label>특정 경기 (대상이 "특정 경기"일 때)<select id="r-game">'+opts+'</select></label><label>마켓<select id="r-market"><option value="">모든 마켓</option><option value="ml">승패</option><option value="3way">승①패/승무패</option><option value="h">핸디</option><option value="u">오버언더</option><option value="sum">SUM</option></select></label><label>배당 변동 임계값 (절대값)<input id="r-th" type="number" step="0.01" min="0.01" value="0.10"></label><div style="display:flex;gap:6px"><button class="cart-btn" id="r-add" type="button">규칙 추가</button><button class="cart-btn" id="r-export" type="button">JSON 복사 (봇에 전달)</button></div><div class="hint">규칙은 이 브라우저에 저장됩니다. 봇이 실제 알림을 보내려면 "JSON 복사"로 내보낸 내용을 저장소의 <code>alert_rules.json</code>에 넣어야 합니다 (할매봇 지시문 참고).</div></div><div class="rule-list" id="rule-list">'+(list||'<div class="hint">규칙 없음</div>')+'</div>';
+  }
+  document.getElementById('rules-btn').addEventListener('click',function(){ openPanel('배당 변동 알림 규칙', rulesHtml()); });
+  document.getElementById('panel-body').addEventListener('click',function(e){
+    if(e.target.id==='r-add'){ var scope=document.getElementById('r-scope').value; rules.push({scope:scope,group_id:scope==='one'?document.getElementById('r-game').value:null,watch_groups:scope==='watch'?Object.keys(watch):null,market:document.getElementById('r-market').value||null,threshold:parseFloat(document.getElementById('r-th').value)||0.1,created:new Date().toISOString()}); lsSet(LS.rules,rules); document.getElementById('panel-body').innerHTML=rulesHtml(); return; }
+    if(e.target.id==='r-export'){ var payload={version:1,exported_at:new Date().toISOString(),rules:rules.map(function(r){return Object.assign({},r,r.scope==='watch'?{watch_groups:Object.keys(watch)}:{});})}; copyText(JSON.stringify(payload,null,2)).then(function(){e.target.textContent='복사됨';setTimeout(function(){e.target.textContent='JSON 복사 (봇에 전달)';},1400);}); return; }
+    var d=e.target.closest('[data-rdel]'); if(d){ rules.splice(+d.getAttribute('data-rdel'),1); lsSet(LS.rules,rules); document.getElementById('panel-body').innerHTML=rulesHtml(); }
+  });
+
+  // ── 단축키 (1-5) ──
+  // ── 키보드 내비 (j/k 이동, Enter 접기, s 관심, d 상세) ──
+  function blocks(){ return Array.prototype.slice.call(main.querySelectorAll('.game-block')); }
+  function applyFocus(scroll){ var bs=blocks(); bs.forEach(function(b){b.classList.remove('focused');}); if(focusIdx<0||focusIdx>=bs.length){focusIdx=Math.min(focusIdx,bs.length-1);} if(focusIdx>=0&&bs[focusIdx]){ bs[focusIdx].classList.add('focused'); if(scroll)bs[focusIdx].scrollIntoView({behavior:'smooth',block:'center'}); } }
+  function moveFocus(d){ var bs=blocks(); if(!bs.length)return; focusIdx=focusIdx<0?(d>0?0:bs.length-1):Math.max(0,Math.min(bs.length-1,focusIdx+d)); applyFocus(true); }
+  function focusedBlock(){ var bs=blocks(); return focusIdx>=0?bs[focusIdx]:null; }
+  main.addEventListener('mousedown',function(e){ var b=e.target.closest('.game-block'); if(!b)return; focusIdx=blocks().indexOf(b); applyFocus(false); });
+  document.addEventListener('keydown',function(e){
+    var tg=(e.target.tagName||'').toLowerCase(); var typ=tg==='input'||tg==='textarea'||tg==='select';
+    if(!typ&&!e.ctrlKey&&!e.metaKey&&!e.altKey){
+      if(e.key==='j'){e.preventDefault();moveFocus(1);return;}
+      if(e.key==='k'){e.preventDefault();moveFocus(-1);return;}
+      var fb=focusedBlock();
+      if(fb&&e.key==='Enter'){ e.preventDefault(); var g=fb.getAttribute('data-group'); collapsed[g]=!collapsed[g]; if(!collapsed[g])delete collapsed[g]; saveCollapsed(); fb.classList.toggle('collapsed',!!collapsed[g]); return; }
+      if(fb&&e.key==='s'){ e.preventDefault(); var g2=fb.getAttribute('data-group'); if(watch[g2])delete watch[g2]; else watch[g2]=1; lsSet(LS.watch,watch); render(); return; }
+      if(fb&&e.key==='d'&&HIST){ e.preventDefault(); openDetail(fb.getAttribute('data-group')); return; }
+    }
+    var tag=(e.target.tagName||'').toLowerCase(); var typing=tag==='input'||tag==='textarea'||tag==='select';
+    if(e.key==='Escape'){ closePanel(); document.getElementById('cart').classList.remove('open'); if(typing)e.target.blur(); return; }
+    if(typing)return;
+    if(e.key==='/'){ e.preventDefault(); searchEl.focus(); searchEl.select(); return; }
+    if(/^[1-6]$/.test(e.key)){ var opts=document.querySelectorAll('#sel-market option'); var o=opts[+e.key-1]; if(o){currentMarket=o.value;render();} return; }
+    if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='c'&&!window.getSelection().toString()){ document.getElementById('cart-copy').click(); }
+  });
+
+  // ── 초기화 ──
+  if(HIST)document.body.classList.add('has-history');
+  if(MYODDS)document.getElementById('value-tabs').style.display='flex';
+  renderStatusInd(); setupArchive();
+  renderMeta(); buildRowIndex(); readHash(); render(); renderCart(); renderSlips();
+  setInterval(renderMeta,60000);
+
+  // ── 헤더 높이 → CSS 변수 (카트 sticky 위치·높이 계산), 스크롤 시 컴팩트 ──
+  var hdr=document.querySelector('.board-header');
+  function syncHdr(){ document.documentElement.style.setProperty('--hdr-h', hdr.offsetHeight+'px'); }
+  var compact=false;
+  function onScroll(){ var y=window.scrollY||document.documentElement.scrollTop; var want=y>90?true:(y<30?false:compact); if(want!==compact){ compact=want; hdr.classList.toggle('compact',compact); syncHdr(); } }
+  window.addEventListener('scroll',onScroll,{passive:true});
+  if(window.ResizeObserver){ new ResizeObserver(syncHdr).observe(hdr); } else { window.addEventListener('resize',syncHdr); }
+  syncHdr();
+})();
+</script>
+</body>
+</html>
