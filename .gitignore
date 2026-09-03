@@ -1,0 +1,5 @@
+# 백업 파일 등 제외
+*.bak
+*.bak_*
+_before_manual_*
+__pycache__/
